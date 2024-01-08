@@ -89,6 +89,9 @@ class BaseSampler:
             model.dtype = torch.float16
             model.convert_to_fp16()
         self.model = model.eval()
+        
+        self.model = self.model.to(memory_format=torch.channels_last)
+        self.model = torch.compile(self.model)
 
         # autoencoder model
         if self.configs.autoencoder is not None:
@@ -104,6 +107,9 @@ class BaseSampler:
                 self.autoencoder = autoencoder
         else:
             self.autoencoder = None
+
+        self.autoencoder = self.autoencoder.to(memory_format=torch.channels_last)
+        self.autoencoder = torch.compile(self.autoencoder)
 
     def load_model(self, model, ckpt_path=None):
         state = torch.load(ckpt_path, map_location=f"cuda:{self.rank}")
@@ -240,7 +246,7 @@ class ResShiftSampler(BaseSampler):
                 im_path_list = [x for x in in_path.glob("*.[jpJP][pnPN]*[gG]")]
                 self.write_log(f'Find {len(im_path_list)} images in {in_path}')
 
-                for im_path in im_path_list:
+                for im_path in sorted(im_path_list):
                     im_lq = util_image.imread(im_path, chn='rgb', dtype='float32')  # h x w x c
                     im_lq_tensor = util_image.img2tensor(im_lq).cuda()              # 1 x c x h x w
                     im_sr_tensor = _process_per_image(im_lq_tensor)
@@ -248,6 +254,8 @@ class ResShiftSampler(BaseSampler):
 
                     im_path = out_path / f"{im_path.stem}.png"
                     util_image.imwrite(im_sr, im_path, chn='bgr', dtype_in='uint8')
+
+                    self.write_log(f"Processed {im_path.stem}")            
 
         self.write_log(f"Processing done, enjoy the results in {str(out_path)}")
 

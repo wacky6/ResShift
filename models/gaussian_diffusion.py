@@ -2,6 +2,7 @@ import enum
 import math
 
 import numpy as np
+import torch
 import torch as th
 import torch.nn.functional as F
 
@@ -428,8 +429,7 @@ class GaussianDiffusion:
         Returns a generator over dicts, where each dict is the return value of
         p_sample().
         """
-        if device is None:
-            device = next(model.parameters()).device
+        device = torch.device('cuda')
         z_y = self.encode_first_stage(y, first_stage_model, up_sample=True)
 
         # generating noise
@@ -481,7 +481,7 @@ class GaussianDiffusion:
             return y
         else:
             with th.no_grad():
-                y = y.type(dtype=next(first_stage_model.parameters()).dtype)
+                y = y.type(dtype=torch.float16)
                 z_y = first_stage_model.encode(y)
                 out = z_y * self.scale_factor
                 return out.type(ori_dtype)
